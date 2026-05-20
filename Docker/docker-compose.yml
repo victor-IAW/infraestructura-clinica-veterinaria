@@ -1,40 +1,75 @@
+# Especifica la versión del formato de Docker Compose (estándar moderno).
 version: '3.8'
 
+# Definición de los contenedores individuales (servicios) del servidor.
 services:
+
+  # ----------------------------------------------------------------------------
+  # SERVICIO 1: BASE DE DATOS (MariaDB)
+  # ----------------------------------------------------------------------------
   db-clinica:
+    # Descarga la imagen oficial más reciente y estable desde Docker Hub.
     image: mariadb:latest
+    # Nombre estático del contenedor para facilitar la monitorización.
     container_name: db-clinica
+    # Política de alta disponibilidad: reinicio automático ante caídas.
     restart: always
+    # Parámetros de configuración inicial inyectados al contenedor.
     environment:
+      # Contraseña maestra del administrador (securizada para el repositorio).
       MARIADB_ROOT_PASSWORD: <password_segura>
+      # Crea automáticamente una base de datos vacía en el primer arranque.
       MARIADB_DATABASE: wordpress
+    # Mapeo de puertos entre el VPS físico y el contenedor aislado.
     ports:
+      # Permite conexiones externas (ej. scripts PowerShell) por el puerto 3306.
       - "3306:3306"
+    # Bloque de persistencia para evitar la pérdida de datos de las tablas.
     volumes:
       - db_data:/var/lib/mysql
+    # Conecta la base de datos a la red común del proyecto.
     networks:
-      - red-clinica # Lo conectamos a la red del proxy
+      - red-clinica
 
+  # ----------------------------------------------------------------------------
+  # SERVICIO 2: CMS Y SERVIDOR WEB (WordPress)
+  # ----------------------------------------------------------------------------
   wp-clinica:
+    # Descarga la imagen oficial más reciente de WordPress.
     image: wordpress:latest
+    # Nombre físico del contenedor en el sistema.
     container_name: wp-clinica
+    # Reinicio automático del sitio web ante mantenimientos del VPS.
     restart: always
+    # Orden lógico: prohíbe arrancar hasta que la base de datos esté lista.
     depends_on:
       - db-clinica
+    # Variables requeridas por WordPress para conectarse con la BD.
     environment:
+      # El DNS de Docker resuelve el nombre del servicio directamente.
       WORDPRESS_DB_HOST: db-clinica
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DB_USER: root
+      # Debe coincidir con MARIADB_ROOT_PASSWORD.
       WORDPRESS_DB_PASSWORD: <password_segura>
+    # Persistencia de almacenamiento para proteger imágenes, temas y plugins.
     volumes:
       - wp_data:/var/www/html
+    # Conecta a la red virtual para enlazar con la BD y el Proxy Inverso.
     networks:
-      - red-clinica # Lo conectamos a la red del proxy
+      - red-clinica
 
+# ==============================================================================
+# SECCIÓN GLOBAL DE VOLÚMENES Y REDES
+# ==============================================================================
 volumes:
+  # Espacios físicos permanentes en el disco del VPS.
   db_data:
   wp_data:
 
 networks:
-  red-clinica: # Declaramos la red que ya existe en el VPS
+  # Definición de la red virtual compartida.
+  red-clinica:
+    # PUNTO CRÍTICO: La red ya existe en el VPS (creada por Nginx Proxy Manager).
+    # Docker Compose solo une los contenedores a ella para permitir el SSL.
     external: true
