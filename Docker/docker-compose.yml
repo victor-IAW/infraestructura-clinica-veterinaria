@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db-clinica:
+    image: mariadb:latest
+    container_name: db-clinica
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: <password_segura>
+      MARIADB_DATABASE: wordpress
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - red-clinica # Lo conectamos a la red del proxy
+
+  wp-clinica:
+    image: wordpress:latest
+    container_name: wp-clinica
+    restart: always
+    depends_on:
+      - db-clinica
+    environment:
+      WORDPRESS_DB_HOST: db-clinica
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: <password_segura>
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - red-clinica # Lo conectamos a la red del proxy
+
+volumes:
+  db_data:
+  wp_data:
+
+networks:
+  red-clinica: # Declaramos la red que ya existe en el VPS
+    external: true
